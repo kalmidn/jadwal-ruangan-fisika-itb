@@ -1,33 +1,8 @@
 {
   "rooms": [
-    {
-      "id": "R101",
-      "name": "R1201",
-      "location": "Gedung Fisika - Lantai 1",
-      "capacity": 0
-    },
-    {
-      "id": "R102",
-      "name": "R1202",
-      "location": "Gedung Fisika - Lantai 2",
-      "capacity": 0
-    },
-    {
-      "id": "LabA",
-      "name": "Lab Fisika Medis",
-      "location": "LFT - Lantai 2",
-      "capacity": 0
-    }
+    {"id": "R101", "name": "Ruang 1201", "building": "Gedung Fisika", "location": "Lt 1"},
+    {"id": "R102", "name": "Ruang 1202", "building": "Gedung Fisika", "location": "Lt 2"},
+    {"id": "LabA", "name": "Ruang Lab Fisika Dasar",  "building": "LFT", "location": "Lt 2"}
   ],
-  "bookings": [
-    {
-      "room_id": "R101",
-      "date": "2025-09-08",
-      "start": "09:00",
-      "end": "11:00",
-      "title": "Tutorial Mekanika Kuantum",
-      "pic_name": "Dr. Agus Suroso",
-      "status": "fixed"
-    }
-  ]
+  "bookings": []
 }
