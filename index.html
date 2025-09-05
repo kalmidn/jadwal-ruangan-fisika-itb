@@ -80,6 +80,9 @@
         <button id="prev">◀ Prev</button>
         <input type="date" id="datePicker" />
         <button id="next">Next ▶</button>
+        <select id="buildingFilter">
+          <option value="all">All buildings</option>
+        </select>
         <select id="roomFilter">
           <option value="all">All rooms</option>
         </select>
@@ -146,10 +149,14 @@
     function hoursArray(){ const arr=[]; for(let h=START_HOUR; h<END_HOUR; h++) arr.push(h); return arr; }
 
     // ---------- Day view ----------
-    function buildDayGrid({rooms, bookings}, currentDate, roomFilter, statusFilter){
+    function buildDayGrid({rooms, bookings}, currentDate, buildingFilter, roomFilter, statusFilter){
       const grid = byId('grid');
       grid.innerHTML = '';
-      const roomsUse = roomFilter==='all' ? rooms : rooms.filter(r => r.id === roomFilter);
+      let roomsUse = rooms || [];
+      if (buildingFilter && buildingFilter !== 'all') {
+        roomsUse = roomsUse.filter(r => (r.building || '') === buildingFilter);
+      }
+      roomsUse = (roomFilter && roomFilter !== 'all') ? roomsUse.filter(r => r.id === roomFilter) : roomsUse;
       grid.style.gridTemplateColumns = `100px repeat(${roomsUse.length}, minmax(180px, 1fr))`;
       const hours = hoursArray();
 
@@ -213,13 +220,17 @@
     function daysInMonth(year, month){ return new Date(year, month+1, 0).getDate(); }
     function isWeekend(y,m,d){ const wd = new Date(y,m,d).getDay(); return wd===0 || wd===6; }
 
-    function buildMonthGrid({rooms, bookings}, anchorDate, roomFilter, statusFilter){
+    function buildMonthGrid({rooms, bookings}, anchorDate, buildingFilter, roomFilter, statusFilter){
       const y = anchorDate.getFullYear();
       const m = anchorDate.getMonth();
       const dim = daysInMonth(y,m);
       const monthGrid = byId('monthGrid');
       monthGrid.innerHTML = '';
-      const roomsUse = roomFilter==='all' ? rooms : rooms.filter(r => r.id === roomFilter);
+      let roomsUse = rooms || [];
+      if (buildingFilter && buildingFilter !== 'all') {
+        roomsUse = roomsUse.filter(r => (r.building || '') === buildingFilter);
+      }
+      roomsUse = (roomFilter && roomFilter !== 'all') ? roomsUse.filter(r => r.id === roomFilter) : roomsUse;
 
       // grid template: first column sticky for room names + 1 col per day
       monthGrid.style.gridTemplateColumns = `200px repeat(${dim}, 1fr)`;
@@ -288,9 +299,20 @@
     (async function(){
       const data = await loadData();
 
-      // Populate room filter
+      // Populate filters
+      const buildingSel = byId('buildingFilter');
       const roomSel = byId('roomFilter');
-      data.rooms.forEach(r => { const opt = document.createElement('option'); opt.value = r.id; opt.textContent = r.name; roomSel.appendChild(opt); });
+
+      const buildings = Array.from(new Set((data.rooms||[]).map(r => r.building).filter(Boolean))).sort();
+      buildings.forEach(b => { const opt=document.createElement('option'); opt.value=b; opt.textContent=b; buildingSel.appendChild(opt); });
+
+      function repopulateRooms(){
+        const selectedBuilding = buildingSel.value;
+        roomSel.innerHTML = '<option value="all">All rooms</option>';
+        const roomsFiltered = selectedBuilding==='all' ? (data.rooms||[]) : (data.rooms||[]).filter(r => (r.building||'')===selectedBuilding);
+        roomsFiltered.forEach(r => { const opt=document.createElement('option'); opt.value=r.id; opt.textContent=r.name; roomSel.appendChild(opt); });
+      }
+      repopulateRooms();
 
       const today = new Date();
       const current = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -309,15 +331,16 @@
         const dateStr = byId('datePicker').value;
         if(!dateStr) return;
         if(VIEW==='day'){
-          buildDayGrid(data, dateStr, roomSel.value, byId('statusFilter').value);
+          buildDayGrid(data, dateStr, buildingSel.value, roomSel.value, byId('statusFilter').value);
         } else {
           const d = new Date(dateStr);
-          buildMonthGrid(data, new Date(d.getFullYear(), d.getMonth(), 1), roomSel.value, byId('statusFilter').value);
+          buildMonthGrid(data, new Date(d.getFullYear(), d.getMonth(), 1), buildingSel.value, roomSel.value, byId('statusFilter').value);
         }
       }
 
       byId('datePicker').addEventListener('change', render);
       roomSel.addEventListener('change', render);
+      buildingSel.addEventListener('change', () => { repopulateRooms(); render(); });
       byId('statusFilter').addEventListener('change', render);
 
       byId('prev').addEventListener('click', () => { shiftDate(VIEW==='day' ? -1 : -30); render(); });
