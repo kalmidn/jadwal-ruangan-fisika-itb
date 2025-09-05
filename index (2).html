@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Department Room Timetable</title>
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --card: #14171b;
+      --muted: #7a8599;
+      --text: #e8ecf1;
+      --accent: #2e90ff;
+      --busy: #2ea043;
+      --fixed: #9a6bff;
+      --pending: #eab308;
+      --rejected: #ef4444;
+      --grid-border: #263041;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, "Apple Color Emoji","Segoe UI Emoji"; background: var(--bg); color: var(--text);
+    }
+    .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    header { display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom: 14px; }
+    h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+    .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .controls > * { background: var(--card); border: 1px solid #202734; color: var(--text); padding: 8px 10px; border-radius: 10px; }
+    button { cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+    select, input[type="date"] { appearance: none; }
+    .legend { display:flex; gap:12px; flex-wrap: wrap; margin: 8px 0 18px; color: var(--muted); font-size: 12px; }
+    .chip { display:inline-flex; align-items:center; gap:6px; }
+    .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+    .grid-wrap { overflow:auto; background: var(--card); border:1px solid #202734; border-radius: 14px; }
+    .grid {
+      display: grid;
+      grid-auto-rows: 56px; /* one hour */
+      min-width: 900px;
+    }
+    .grid-header { position: sticky; top: 0; z-index: 2; background: #101318; }
+    .room-header { padding: 10px; border-left: 1px solid var(--grid-border); font-weight: 600; }
+    .time-col { width: 100px; background: #101318; color: var(--muted); padding: 10px; border-bottom: 1px solid var(--grid-border); position: sticky; left:0; z-index:1; }
+    .time-col.header { font-weight:700; border-bottom: 1px solid #202734; }
+    .cell { border-left: 1px solid var(--grid-border); border-bottom: 1px solid var(--grid-border); position: relative; }
+    .block { position:absolute; inset:4px; border-radius: 10px; padding: 8px; display:flex; flex-direction:column; gap:4px; overflow:hidden; }
+    .block .title { font-weight: 600; font-size: 13px; line-height: 1.2; }
+    .block .meta { font-size: 12px; color: #d2d9e2; opacity: .9; }
+    .fixed { background: linear-gradient(180deg, rgba(154,107,255,.18), rgba(154,107,255,.12)); border:1px solid rgba(154,107,255,.35); }
+    .approved { background: linear-gradient(180deg, rgba(46,160,67,.18), rgba(46,160,67,.12)); border:1px solid rgba(46,160,67,.35); }
+    .pending { background: linear-gradient(180deg, rgba(234,179,8,.18), rgba(234,179,8,.12)); border:1px solid rgba(234,179,8,.35); }
+    .rejected { background: linear-gradient(180deg, rgba(239,68,68,.18), rgba(239,68,68,.12)); border:1px solid rgba(239,68,68,.35); }
+    .hint { color: var(--muted); font-size: 12px; margin-top: 10px; }
+    footer { margin: 24px 0; color: var(--muted); font-size: 12px; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Department Room Timetable</h1>
+      <div class="controls">
+        <button id="prev">◀ Prev</button>
+        <input type="date" id="datePicker" />
+        <button id="next">Next ▶</button>
+        <select id="buildingFilter">
+          <option value="all">All buildings</option>
+        </select>
+        <select id="roomFilter">
+          <option value="all">All rooms</option>
+        </select>
+        <select id="statusFilter">
+          <option value="all">All statuses</option>
+          <option value="fixed">Fixed only</option>
+          <option value="approved">Approved only</option>
+        </select>
+      </div>
+    </header>
+
+    <div class="legend">
+      <span class="chip"><span class="dot" style="background: var(--fixed)"></span> Fixed</span>
+      <span class="chip"><span class="dot" style="background: var(--busy)"></span> Approved</span>
+      <span class="chip"><span class="dot" style="background: var(--pending)"></span> Pending (hidden on public)</span>
+    </div>
+
+    <div class="grid-wrap">
+      <div id="grid" class="grid"></div>
+    </div>
+    <div class="hint">Hours shown: 07:00–17:00 local. Merge logic spans multi‑hour bookings automatically. Use URL params <code>?building=..&room=..&date=YYYY-MM-DD</code> to preselect.</div>
+
+    <footer>
+      <div>Data source: <code>/data/schedule.json</code>. If the file isn’t present, demo data is used.</div>
+    </footer>
+  </div>
+
+  <script>
+    // ---------- Configuration ----------
+    const START_HOUR = 7; // inclusive
+    const END_HOUR = 17; // exclusive
+    const SHOW_PENDING_PUBLIC = false; // set true for admin view
+
+    // ---------- Demo data (used only if fetch fails) ----------
+    const DEMO = {
+      rooms: [
+        { id: "R101", name: "Room 101", building: "Bldg A", location: "Level 1", capacity: 30 },
+        { id: "R102", name: "Room 102", building: "Bldg A", location: "Level 1", capacity: 24 },
+        { id: "LabA", name: "Lab A", building: "Bldg B", location: "Level 2", capacity: 20 }
+      ],
+      bookings: [
+        { room_id: "R101", date: "2025-09-05", start: "07:00", end: "10:00", title: "Physics 101", pic_name: "Dr. Sari", status: "fixed", source: "fixed" },
+        { room_id: "R101", date: "2025-09-05", start: "13:00", end: "15:00", title: "Dept Meeting", pic_name: "Prof. Adi", status: "approved", source: "request" },
+        { room_id: "R102", date: "2025-09-05", start: "09:00", end: "12:00", title: "Seminar", pic_name: "Guest", status: "approved", source: "request" },
+        { room_id: "LabA", date: "2025-09-05", start: "08:00", end: "11:00", title: "Lab Practicum", pic_name: "Irna", status: "fixed", source: "fixed" },
+        { room_id: "LabA", date: "2025-09-05", start: "14:00", end: "16:00", title: "Experiment Setup", pic_name: "Yusuf", status: "pending", source: "request" }
+      ]
+    };
+
+    // Expected JSON schema at /data/schedule.json:
+    // {
+    //   "rooms": [{"id":"R101","name":"Room 101","building":"Bldg A","location":"L1","capacity":30, "equipment":["Projector"]}, ...],
+    //   "bookings": [
+    //      {"room_id":"R101","date":"2025-09-05","start":"09:00","end":"11:00","title":"Class","pic_name":"Dr X","pic_email":"x@uni.edu","status":"fixed|approved|pending|rejected","source":"fixed|request"}
+    //   ]
+    // }
+
+    // ---------- Utilities ----------
+    const pad2 = n => String(n).padStart(2, '0');
+    const fmtDate = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+    const parseTime = t => { const [h,m]=t.split(":").map(Number); return h + m/60; };
+    const byId = id => document.getElementById(id);
+    const escapeHTML = str => String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#39;");
+
+    function setDateInput(date){ byId('datePicker').value = date; }
+    function hoursArray(){ const arr=[]; for(let h=START_HOUR; h<END_HOUR; h++) arr.push(h); return arr; }
+
+    // URL param helpers
+    function getParam(name){
+      const url = new URL(window.location.href);
+      return url.searchParams.get(name);
+    }
+
+    function buildGrid({rooms, bookings}, currentDate, buildingFilter, roomFilter, statusFilter){
+      const grid = byId('grid');
+      grid.innerHTML = '';
+      let roomsUse = rooms || [];
+      if (buildingFilter && buildingFilter !== 'all') {
+        roomsUse = roomsUse.filter(r => (r.building || '') === buildingFilter);
+      }
+      roomsUse = (roomFilter && roomFilter!=='all') ? roomsUse.filter(r => r.id === roomFilter) : roomsUse;
+
+      // Layout
+      grid.style.gridTemplateColumns = `100px repeat(${roomsUse.length}, minmax(180px, 1fr))`;
+      const hours = hoursArray();
+
+      // Header row
+      const timeHeader = document.createElement('div');
+      timeHeader.className = 'time-col header grid-header';
+      timeHeader.textContent = new Date(currentDate).toLocaleDateString(undefined, { weekday:'short', year:'numeric', month:'short', day:'numeric' });
+      grid.appendChild(timeHeader);
+      roomsUse.forEach(r => {
+        const h = document.createElement('div');
+        h.className = 'room-header grid-header';
+        h.textContent = r.name + (r.building ? ` · ${r.building}` : '');
+        grid.appendChild(h);
+      });
+
+      // Filter bookings for the chosen date/status and rooms present
+      const todays = (bookings||[]).filter(b => b.date === currentDate)
+        .filter(b => statusFilter==='all' ? true : b.status === statusFilter)
+        .filter(b => SHOW_PENDING_PUBLIC ? true : b.status !== 'pending');
+
+      const byRoom = new Map(roomsUse.map(r => [r.id, []]));
+      todays.forEach(b => { if(byRoom.has(b.room_id)) byRoom.get(b.room_id).push(b); });
+      for(const list of byRoom.values()) list.sort((a,b)=> parseTime(a.start) - parseTime(b.start));
+
+      // Hour rows
+      hours.forEach(h => {
+        const t = document.createElement('div');
+        t.className = 'time-col';
+        t.textContent = `${pad2(h)}:00`;
+        grid.appendChild(t);
+        roomsUse.forEach(() => {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          grid.appendChild(cell);
+        });
+      });
+
+      // Render blocks
+      roomsUse.forEach((r, colIndex) => {
+        const list = byRoom.get(r.id) || [];
+        list.forEach(b => {
+          const start = Math.max(parseTime(b.start), START_HOUR);
+          const end   = Math.min(parseTime(b.end),   END_HOUR);
+          if(end <= START_HOUR || start >= END_HOUR) return;
+          const topRow = Math.floor(start - START_HOUR) + 1;
+          const childIndex = (1 * (roomsUse.length + 1)) + (topRow - 1) * (roomsUse.length + 1) + 1 + colIndex + 1;
+          const targetCell = grid.children[childIndex - 1];
+          if(!targetCell) return;
+
+          const block = document.createElement('div');
+          block.className = `block ${b.status === 'fixed' ? 'fixed' : b.status}`;
+          block.style.top = `${4 + (start - Math.floor(start)) * 56}px`;
+          block.style.height = `${Math.max(56 * (end - start) - 8, 40)}px`;
+          block.innerHTML = `
+            <div class="title">${escapeHTML(b.title || 'Booked')}</div>
+            <div class="meta">${b.pic_name ? escapeHTML(b.pic_name) : ''} · ${b.start}–${b.end}</div>
+          `;
+          targetCell.appendChild(block);
+        });
+      });
+    }
+
+    // Data loading
+    async function loadData(){
+      try {
+        const res = await fetch('./data/schedule.json', { cache: 'no-store' });
+        if(!res.ok) throw new Error('no schedule.json');
+        return await res.json();
+      } catch (e) {
+        console.warn('Using demo data:', e.message);
+        return DEMO;
+      }
+    }
+
+    // App bootstrap
+    (async function(){
+      const data = await loadData();
+
+      // Populate filters
+      const buildingSel = byId('buildingFilter');
+      const roomSel = byId('roomFilter');
+
+      // derive building list
+      const buildings = Array.from(new Set((data.rooms||[]).map(r => r.building).filter(Boolean))).sort();
+      buildings.forEach(b => {
+        const opt = document.createElement('option'); opt.value=b; opt.textContent=b; buildingSel.appendChild(opt);
+      });
+
+      function repopulateRooms(){
+        const selectedBuilding = buildingSel.value;
+        roomSel.innerHTML = '<option value="all">All rooms</option>';
+        const roomsFiltered = selectedBuilding==='all' ? data.rooms : (data.rooms||[]).filter(r => (r.building||'')===selectedBuilding);
+        (roomsFiltered||[]).forEach(r => {
+          const opt = document.createElement('option'); opt.value=r.id; opt.textContent=r.name; roomSel.appendChild(opt);
+        });
+      }
+      repopulateRooms();
+
+      // Read URL params to preselect
+      const urlDate = getParam('date');
+      const urlBuilding = getParam('building');
+      const urlRoom = getParam('room');
+      if (urlBuilding && buildings.includes(urlBuilding)) { buildingSel.value = urlBuilding; repopulateRooms(); }
+      if (urlRoom) { roomSel.value = urlRoom; }
+      const today = new Date();
+      const current = urlDate ? new Date(urlDate) : new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      setDateInput(fmtDate(current));
+
+      function render(){
+        buildGrid(
+          data,
+          byId('datePicker').value,
+          buildingSel.value,
+          roomSel.value,
+          byId('statusFilter').value
+        );
+      }
+
+      render();
+
+      byId('datePicker').addEventListener('change', render);
+      roomSel.addEventListener('change', render);
+      buildingSel.addEventListener('change', () => { repopulateRooms(); render(); });
+      byId('statusFilter').addEventListener('change', render);
+      byId('prev').addEventListener('click', () => { shiftDate(-1); render(); });
+      byId('next').addEventListener('click', () => { shiftDate(1); render(); });
+
+      function shiftDate(days){
+        const d = new Date(byId('datePicker').value);
+        d.setDate(d.getDate() + days);
+        setDateInput(fmtDate(d));
+      }
+    })();
+  </script>
+</body>
+</html>
