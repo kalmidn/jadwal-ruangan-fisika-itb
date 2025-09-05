@@ -147,6 +147,13 @@
 
     function setDateInput(date){ byId('datePicker').value = date; }
     function hoursArray(){ const arr=[]; for(let h=START_HOUR; h<END_HOUR; h++) arr.push(h); return arr; }
+    function nearestBookedDate(bookings, aroundDateStr) {
+      if (!Array.isArray(bookings) || bookings.length === 0) return aroundDateStr;
+      const around = new Date(aroundDateStr);
+      const uniqueDates = Array.from(new Set(bookings.map(b => b.date)));
+      uniqueDates.sort((a, b) => Math.abs(new Date(a) - around) - Math.abs(new Date(b) - around));
+      return uniqueDates[0] || aroundDateStr;
+    }
 
     // ---------- Day view ----------
     function buildDayGrid({rooms, bookings}, currentDate, buildingFilter, roomFilter, statusFilter){
@@ -315,9 +322,10 @@
       repopulateRooms();
 
       const today = new Date();
-      const current = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      setDateInput(fmtDate(current));
-
+      const todayStr = fmtDate(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
+      const initialStr = nearestBookedDate(data.bookings, todayStr);
+      setDateInput(initialStr);
+      
       // Tab switching
       const tabDay = byId('tabDay');
       const tabMonth = byId('tabMonth');
