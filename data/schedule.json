@@ -1,77 +1,32 @@
 {
   "rooms": [
     {
-      "id": "R1201",
-      "name": "Ruangan 1201",
-      "building": "Gedung Fisika",
-      "location": "Lt 1",
-      "capacity": 30
+      "id": "R101",
+      "name": "R1201",
+      "location": "Gedung Fisika - Lantai 1",
+      "capacity": 0
     },
     {
-      "id": "R1202",
-      "name": "Ruangan 1202",
-      "building": "Gedung Fisika",
-      "location": "Lt 2",
-      "capacity": 24
+      "id": "R102",
+      "name": "R1202",
+      "location": "Gedung Fisika - Lantai 2",
+      "capacity": 0
     },
     {
-      "id": "R1203",
-      "name": "Ruangan 1203",
-      "building": "Gedung Fisika",
-      "location": "Lt 1",
-      "capacity": 20
-    },
-    {
-      "id": "R1204",
-      "name": "Ruangan 1204",
-      "building": "Gedung Fisika",
-      "location": "Lt 1",
-      "capacity": 20
-    },
-    {
-      "id": "R1205",
-      "name": "Ruangan 1205",
-      "building": "Gedung Fisika",
-      "location": "Lt 1",
-      "capacity": 20
-    },
-    {
-      "id": "LabFisikaMedis",
-      "name": "Ruangan Lab Fisika Medis",
-      "building": "Gedung LFT",
-      "location": "Lt 2",
-      "capacity": 20
-    },
-    {
-      "id": "LabFisikaTeori",
-      "name": "Ruangan Lab Fisika Teori",
-      "building": "Gedung LFT",
-      "location": "Lt 2",
-      "capacity": 20
-    },
-    {
-      "id": "commonroomlabtekxv",
-      "name": "Common Room Labtek XV",
-      "building": "Labtek XV",
-      "location": "Lt 8",
-      "capacity": 20
-    },
-    {
-      "id": "classroomlabtekxv",
-      "name": "Class Room Labtek XV",
-      "building": "Labtek XV",
-      "location": "Lt 8",
-      "capacity": 20
+      "id": "LabA",
+      "name": "Lab Fisika Medis",
+      "location": "LFT - Lantai 2",
+      "capacity": 0
     }
   ],
   "bookings": [
     {
-      "room_id": "R1201",
+      "room_id": "R101",
       "date": "2025-09-08",
       "start": "09:00",
       "end": "11:00",
-      "title": "Physics 101",
-      "pic_name": "Dr. Sari",
+      "title": "Tutorial Mekanika Kuantum",
+      "pic_name": "Dr. Agus Suroso",
       "status": "fixed"
     }
   ]
