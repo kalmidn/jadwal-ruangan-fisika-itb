@@ -4,5 +4,96 @@
     {"id": "R102", "name": "Ruang 1202", "building": "Gedung Fisika", "location": "Lt 2"},
     {"id": "LabA", "name": "Ruang Lab Fisika Dasar",  "building": "LFT", "location": "Lt 2"}
   ],
-  "bookings": []
+  "bookings": [
+    {
+      "room_id": "R101",
+      "date": "2025-09-08",
+      "start": "07:00",
+      "end": "10:00",
+      "title": "Fisika Kuantum",
+      "pic_name": "Prof. Dr. Freddy Permana Zen",
+      "status": "fixed",
+      "source": "fixed"
+    },
+    {
+      "room_id": "R101",
+      "date": "2025-09-08",
+      "start": "13:00",
+      "end": "15:00",
+      "title": "Elektrodinamika",
+      "pic_name": "Prof. Wahyu Srigutomo",
+      "status": "approved",
+      "source": "request"
+    },
+    {
+      "room_id": "R101",
+      "date": "2025-09-08",
+      "start": "14:00",
+      "end": "16:00",
+      "title": "Mekanika",
+      "pic_name": "Dr. Herman",
+      "status": "pending",
+      "source": "request"
+    },
+    {
+      "room_id": "R102",
+      "date": "2025-09-08",
+      "start": "09:00",
+      "end": "12:00",
+      "title": "Fisika Komputasi",
+      "pic_name": "Prof. Rizal Kurniadi",
+      "status": "approved",
+      "source": "request"
+    },
+    {
+      "room_id": "LabA",
+      "date": "2025-09-08",
+      "start": "08:00",
+      "end": "11:00",
+      "title": "Pengambilan Data Tugas Akhir",
+      "pic_name": "Prof. Inge Magdalena",
+      "status": "fixed",
+      "source": "fixed"
+    },
+    {
+      "room_id": "LabA",
+      "date": "2025-09-08",
+      "start": "14:00",
+      "end": "16:30",
+      "title": "Fisika Lanjut",
+      "pic_name": "HIMAFI",
+      "status": "approved",
+      "source": "request"
+    },
+    {
+      "room_id": "R101",
+      "date": "2025-09-10",
+      "start": "09:00",
+      "end": "12:00",
+      "title": "Sidang Tugas Akhir",
+      "pic_name": "Kaprodi",
+      "status": "approved",
+      "source": "request"
+    },
+    {
+      "room_id": "R102",
+      "date": "2025-09-10",
+      "start": "13:00",
+      "end": "17:00",
+      "title": "Elektronika Dasar",
+      "pic_name": "Prof. Maman",
+      "status": "approved",
+      "source": "request"
+    },
+    {
+      "room_id": "LabA",
+      "date": "2025-09-10",
+      "start": "07:00",
+      "end": "12:00",
+      "title": "Pembersihan Lab",
+      "pic_name": "Laboran",
+      "status": "fixed",
+      "source": "fixed"
+    }
+  ]
 }
