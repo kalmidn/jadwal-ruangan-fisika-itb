@@ -1,0 +1,36 @@
+{
+  "rooms": [
+    {
+      "id": "R101",
+      "name": "Room 101",
+      "building": "Bldg A",
+      "location": "L1",
+      "capacity": 30
+    },
+    {
+      "id": "R102",
+      "name": "Room 102",
+      "building": "Bldg A",
+      "location": "L1",
+      "capacity": 24
+    },
+    {
+      "id": "LabA",
+      "name": "Lab A",
+      "building": "Bldg B",
+      "location": "L2",
+      "capacity": 20
+    }
+  ],
+  "bookings": [
+    {
+      "room_id": "R101",
+      "date": "2025-09-08",
+      "start": "09:00",
+      "end": "11:00",
+      "title": "Physics 101",
+      "pic_name": "Dr. Sari",
+      "status": "fixed"
+    }
+  ]
+}
