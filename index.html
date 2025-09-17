@@ -3,366 +3,63 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Department Room Timetable</title>
-  <style>
-    :root {
-      --bg: #0b0d10;
-      --card: #14171b;
-      --muted: #7a8599;
-      --text: #e8ecf1;
-      --accent: #2e90ff;
-      --busy: #ef4444;
-      --free: #2ea043;
-      --fixed: #9a6bff;
-      --pending: #eab308;
-      --rejected: #ef4444;
-      --grid-border: #263041;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, "Apple Color Emoji","Segoe UI Emoji"; background: var(--bg); color: var(--text); }
-    .container { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
-    header { display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom: 14px; }
-    h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
-    .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-    .controls > * { background: var(--card); border: 1px solid #202734; color: var(--text); padding: 8px 10px; border-radius: 10px; }
-    button { cursor: pointer; }
-    button:hover { border-color: var(--accent); }
-    select, input[type="date"] { appearance: none; }
-
-    .legend { display:flex; gap:12px; flex-wrap: wrap; margin: 8px 0 18px; color: var(--muted); font-size: 12px; }
-    .chip { display:inline-flex; align-items:center; gap:6px; }
-    .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
-
-    .grid-wrap { overflow:auto; background: var(--card); border:1px solid #202734; border-radius: 14px; }
-    .grid { display: grid; grid-auto-rows: 56px; min-width: 900px; }
-    .grid-header { position: sticky; top: 0; z-index: 2; background: #101318; }
-    .room-header { padding: 10px; border-left: 1px solid var(--grid-border); font-weight: 600; }
-    .time-col { width: 100px; background: #101318; color: var(--muted); padding: 10px; border-bottom: 1px solid var(--grid-border); position: sticky; left:0; z-index:1; }
-    .time-col.header { font-weight:700; border-bottom: 1px solid #202734; }
-    .cell { border-left: 1px solid var(--grid-border); border-bottom: 1px solid var(--grid-border); position: relative; }
-    .block { position:absolute; inset:4px; border-radius: 10px; padding: 8px; display:flex; flex-direction:column; gap:4px; overflow:hidden; }
-    .block .title { font-weight: 600; font-size: 13px; line-height: 1.2; }
-    .block .meta { font-size: 12px; color: #d2d9e2; opacity: .9; }
-
-    .fixed { background: linear-gradient(180deg, rgba(154,107,255,.18), rgba(154,107,255,.12)); border:1px solid rgba(154,107,255,.35); }
-    .approved { background: linear-gradient(180deg, rgba(46,160,67,.18), rgba(46,160,67,.12)); border:1px solid rgba(46,160,67,.35); }
-    .pending { background: linear-gradient(180deg, rgba(234,179,8,.18), rgba(234,179,8,.12)); border:1px solid rgba(234,179,8,.35); }
-    .rejected { background: linear-gradient(180deg, rgba(239,68,68,.18), rgba(239,68,68,.12)); border:1px solid rgba(239,68,68,.35); }
-
-    /* Month view */
-    .month-wrap { overflow:auto; background: var(--card); border:1px solid #202734; border-radius: 14px; }
-    .month-grid { display:grid; min-width: 900px; }
-    .month-room { position: sticky; left:0; background:#101318; padding:8px 10px; border-bottom:1px solid var(--grid-border); z-index:1; }
-    .month-head { position: sticky; top:0; background:#101318; padding:8px 6px; border-left:1px solid var(--grid-border); border-bottom:1px solid var(--grid-border); text-align:center; font-size:12px; color:var(--muted); }
-    .month-cell { height:36px; border-left:1px solid var(--grid-border); border-bottom:1px solid var(--grid-border); }
-    .busy { background: rgba(239,68,68,.25); }
-    .free { background: rgba(46,160,67,.22); }
-    .weekend { background: rgba(255,255,255,.03); }
-
-    .view-tabs { display:flex; gap:6px; }
-    .tab { padding:6px 10px; border-radius:10px; background:var(--card); border:1px solid #202734; cursor:pointer; }
-    .tab.active { border-color: var(--accent); }
-
-    .hint { color: var(--muted); font-size: 12px; margin-top: 10px; }
-    footer { margin: 24px 0; color: var(--muted); font-size: 12px; }
-    a { color: var(--accent); }
-  </style>
+  <title>Jadwal Penggunaan Ruangan Gedung Fisika</title>
+  <!-- Use minified for production; swap to style.css/app.js for debugging -->
+  <link rel="stylesheet" href="style/style.min.css">
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>Department Room Timetable</h1>
+      <h1>Jadwal Penggunaan Ruangan Gedung Fisika</h1>
       <div class="controls">
         <div class="view-tabs">
-          <button id="tabDay" class="tab active">Day</button>
-          <button id="tabMonth" class="tab">Month</button>
+          <button id="tabDay" class="tab active">Tampilan Hari</button>
+          <button id="tabMonth" class="tab">Tampilan Bulan</button>
         </div>
         <button id="prev">◀ Prev</button>
         <input type="date" id="datePicker" />
         <button id="next">Next ▶</button>
         <select id="buildingFilter">
-          <option value="all">All buildings</option>
+          <option value="all">Semua gedung</option>
         </select>
         <select id="roomFilter">
-          <option value="all">All rooms</option>
+          <option value="all">Semua ruangan</option>
         </select>
         <select id="statusFilter">
-          <option value="all">All statuses</option>
-          <option value="fixed">Fixed only</option>
-          <option value="approved">Approved only</option>
+          <option value="all">Semua status</option>
+          <option value="fixed">Agenda rutin</option>
+          <option value="approved">Agenda insidental</option>
         </select>
       </div>
     </header>
 
     <div class="legend">
-      <span class="chip"><span class="dot" style="background: var(--fixed)"></span> Fixed</span>
-      <span class="chip"><span class="dot" style="background: var(--free)"></span> Free (month)</span>
-      <span class="chip"><span class="dot" style="background: var(--busy)"></span> Busy (month)</span>
-      <span class="chip"><span class="dot" style="background: var(--pending)"></span> Pending (hidden on public)</span>
+      <span class="chip"><span class="dot" style="background: var(--fixed)"></span> Rutin</span>
+      <span class="chip"><span class="dot" style="background: var(--free)"></span> Jadwal kosong (Tampilan bulan)</span>
+      <span class="chip"><span class="dot" style="background: var(--busy)"></span> Jadwal terpakai (Tampilan bulan)</span>
+      <!--<span class="chip"><span class="dot" style="background: var(--pending)"></span> Pending (hidden on public)</span>-->
     </div>
 
+    <!-- Day view -->
     <div class="grid-wrap" id="dayWrap">
       <div id="grid" class="grid"></div>
     </div>
 
+    <!-- Month view -->
     <div class="month-wrap" id="monthWrap" style="display:none">
       <div id="monthGrid" class="month-grid"></div>
     </div>
 
-    <div class="hint">Day view shows 07:00–17:00. Month view marks a room **busy** if it has any booking that day; otherwise **free**. Use Prev/Next to move a day or an entire month depending on the selected tab.</div>
+    <div class="hint">
+      Tampilan hari menunjukkan jadwal dari pukul 07:00-17:00.  
+      Tampilan bulan menunjukkan status ruangan sebagai <strong>terpakai</strong> jika ruangan terdapat booking di hari tersebut; sisanya, ditandai sebagai <strong>kosong</strong>.  
+    </div>
 
     <footer>
-      <div>Data source: <code>/data/schedule.json</code>. If the file isn’t present, demo data is used.</div>
+      <div>Data source: <code>/data/schedule.json</code>. <!-- If the file isn’t present, demo data is used.</div>-->
     </footer>
   </div>
 
-  <script>
-    // ---------- Configuration ----------
-    const START_HOUR = 7; // inclusive
-    const END_HOUR = 17; // exclusive
-    const SHOW_PENDING_PUBLIC = false; // set true for admin view
-
-    // ---------- Demo data (used only if fetch fails) ----------
-    const DEMO = {
-      rooms: [
-        { id: "R101", name: "Room 101", location: "Level 1", capacity: 30 },
-        { id: "R102", name: "Room 102", location: "Level 1", capacity: 24 },
-        { id: "LabA", name: "Lab A", location: "Level 2", capacity: 20 },
-      ],
-      bookings: [
-        { room_id: "R101", date: "2025-09-05", start: "07:00", end: "10:00", title: "Physics 101", pic_name: "Dr. Sari", status: "fixed", source: "fixed" },
-        { room_id: "R101", date: "2025-09-05", start: "13:00", end: "15:00", title: "Dept Meeting", pic_name: "Prof. Adi", status: "approved", source: "request" },
-        { room_id: "R102", date: "2025-09-05", start: "09:00", end: "12:00", title: "Seminar", pic_name: "Guest", status: "approved", source: "request" },
-        { room_id: "LabA", date: "2025-09-05", start: "08:00", end: "11:00", title: "Lab Practicum", pic_name: "Irna", status: "fixed", source: "fixed" },
-        { room_id: "LabA", date: "2025-09-05", start: "14:00", end: "16:00", title: "Experiment Setup", pic_name: "Yusuf", status: "pending", source: "request" },
-      ]
-    };
-
-    // ---------- Utilities ----------
-    const pad2 = n => String(n).padStart(2, '0');
-    const fmtDate = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-    const parseTime = t => { const [h,m]=t.split(":").map(Number); return h + m/60; };
-    const byId = id => document.getElementById(id);
-    const escapeHTML = str => String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
-
-    function setDateInput(date){ byId('datePicker').value = date; }
-    function hoursArray(){ const arr=[]; for(let h=START_HOUR; h<END_HOUR; h++) arr.push(h); return arr; }
-    function nearestBookedDate(bookings, aroundDateStr) {
-      if (!Array.isArray(bookings) || bookings.length === 0) return aroundDateStr;
-      const around = new Date(aroundDateStr);
-      const uniqueDates = Array.from(new Set(bookings.map(b => b.date)));
-      uniqueDates.sort((a, b) => Math.abs(new Date(a) - around) - Math.abs(new Date(b) - around));
-      return uniqueDates[0] || aroundDateStr;
-    }
-
-    // ---------- Day view ----------
-    function buildDayGrid({rooms, bookings}, currentDate, buildingFilter, roomFilter, statusFilter){
-      const grid = byId('grid');
-      grid.innerHTML = '';
-      let roomsUse = rooms || [];
-      if (buildingFilter && buildingFilter !== 'all') {
-        roomsUse = roomsUse.filter(r => (r.building || '') === buildingFilter);
-      }
-      roomsUse = (roomFilter && roomFilter !== 'all') ? roomsUse.filter(r => r.id === roomFilter) : roomsUse;
-      grid.style.gridTemplateColumns = `100px repeat(${roomsUse.length}, minmax(180px, 1fr))`;
-      const hours = hoursArray();
-
-      const timeHeader = document.createElement('div');
-      timeHeader.className = 'time-col header grid-header';
-      timeHeader.textContent = new Date(currentDate).toLocaleDateString(undefined, { weekday:'short', year:'numeric', month:'short', day:'numeric' });
-      grid.appendChild(timeHeader);
-      roomsUse.forEach(r => {
-        const h = document.createElement('div');
-        h.className = 'room-header grid-header';
-        h.textContent = r.name;
-        grid.appendChild(h);
-      });
-
-      const todays = bookings.filter(b => b.date === currentDate)
-        .filter(b => statusFilter==='all' ? true : b.status === statusFilter)
-        .filter(b => SHOW_PENDING_PUBLIC ? true : b.status !== 'pending');
-
-      const byRoom = new Map();
-      roomsUse.forEach(r => byRoom.set(r.id, []));
-      todays.forEach(b => { if(byRoom.has(b.room_id)) byRoom.get(b.room_id).push(b); });
-      for(const list of byRoom.values()) list.sort((a,b)=> parseTime(a.start) - parseTime(b.start));
-
-      hours.forEach(h => {
-        const t = document.createElement('div');
-        t.className = 'time-col';
-        t.textContent = `${pad2(h)}:00`;
-        grid.appendChild(t);
-        roomsUse.forEach(() => {
-          const cell = document.createElement('div');
-          cell.className = 'cell';
-          grid.appendChild(cell);
-        });
-      });
-
-      roomsUse.forEach((r, colIndex) => {
-        const list = byRoom.get(r.id) || [];
-        list.forEach(b => {
-          const start = Math.max(parseTime(b.start), START_HOUR);
-          const end = Math.min(parseTime(b.end), END_HOUR);
-          if(end <= START_HOUR || start >= END_HOUR) return;
-          const topRow = Math.floor(start - START_HOUR) + 1;
-          const childIndex = (1 * (roomsUse.length + 1)) + (topRow - 1) * (roomsUse.length + 1) + 1 + colIndex + 1;
-          const targetCell = grid.children[childIndex - 1];
-          if(!targetCell) return;
-
-          const block = document.createElement('div');
-          block.className = `block ${b.status === 'fixed' ? 'fixed' : b.status}`;
-          block.style.top = `${4 + (start - Math.floor(start)) * 56}px`;
-          block.style.height = `${Math.max(56 * (end - start) - 8, 40)}px`;
-          block.innerHTML = `
-            <div class="title">${escapeHTML(b.title || 'Booked')}</div>
-            <div class="meta">${b.pic_name ? escapeHTML(b.pic_name) : ''} · ${b.start}–${b.end}</div>
-          `;
-          targetCell.appendChild(block);
-        });
-      });
-    }
-
-    // ---------- Month view ----------
-    function daysInMonth(year, month){ return new Date(year, month+1, 0).getDate(); }
-    function isWeekend(y,m,d){ const wd = new Date(y,m,d).getDay(); return wd===0 || wd===6; }
-
-    function buildMonthGrid({rooms, bookings}, anchorDate, buildingFilter, roomFilter, statusFilter){
-      const y = anchorDate.getFullYear();
-      const m = anchorDate.getMonth();
-      const dim = daysInMonth(y,m);
-      const monthGrid = byId('monthGrid');
-      monthGrid.innerHTML = '';
-      let roomsUse = rooms || [];
-      if (buildingFilter && buildingFilter !== 'all') {
-        roomsUse = roomsUse.filter(r => (r.building || '') === buildingFilter);
-      }
-      roomsUse = (roomFilter && roomFilter !== 'all') ? roomsUse.filter(r => r.id === roomFilter) : roomsUse;
-
-      // grid template: first column sticky for room names + 1 col per day
-      monthGrid.style.gridTemplateColumns = `200px repeat(${dim}, 1fr)`;
-
-      // header row
-      const headRoom = document.createElement('div');
-      headRoom.className = 'month-head';
-      headRoom.textContent = new Date(y, m, 1).toLocaleDateString(undefined, { month:'long', year:'numeric' });
-      headRoom.style.textAlign = 'left';
-      headRoom.style.fontWeight = '600';
-      monthGrid.appendChild(headRoom);
-      for(let d=1; d<=dim; d++){
-        const h = document.createElement('div');
-        h.className = 'month-head' + (isWeekend(y,m,d) ? ' weekend' : '');
-        h.textContent = d;
-        monthGrid.appendChild(h);
-      }
-
-      // Pre-index bookings by room+date for quick lookup
-      const map = new Map(); // key: room_id|YYYY-MM-DD -> true if busy
-      const filtered = bookings
-        .filter(b => (statusFilter==='all' ? true : b.status === statusFilter))
-        .filter(b => SHOW_PENDING_PUBLIC ? true : b.status !== 'pending')
-        .filter(b => b.date.startsWith(`${y}-${pad2(m+1)}-`));
-      for(const b of filtered){
-        map.set(`${b.room_id}|${b.date}`, true);
-      }
-
-      // rows per room
-      roomsUse.forEach(r => {
-        const rm = document.createElement('div');
-        rm.className = 'month-room';
-        rm.textContent = r.name;
-        monthGrid.appendChild(rm);
-        for(let d=1; d<=dim; d++){
-          const cell = document.createElement('div');
-          const dateStr = `${y}-${pad2(m+1)}-${pad2(d)}`;
-          const busy = map.get(`${r.id}|${dateStr}`) === true;
-          cell.className = 'month-cell ' + (busy ? 'busy' : 'free') + (isWeekend(y,m,d) ? ' weekend' : '');
-          cell.title = `${r.name} · ${dateStr} · ${busy ? 'Busy' : 'Free'}`;
-          // click to jump to that day in Day view
-          cell.addEventListener('click', () => {
-            byId('tabDay').click();
-            setDateInput(dateStr);
-            render();
-          });
-          monthGrid.appendChild(cell);
-        }
-      });
-    }
-
-    // ---------- Data loading ----------
-    async function loadData(){
-      try {
-        const res = await fetch('./data/schedule.json', { cache: 'no-store' });
-        if(!res.ok) throw new Error('no schedule.json');
-        return await res.json();
-      } catch (e) {
-        console.warn('Using demo data:', e.message);
-        return DEMO;
-      }
-    }
-
-    // ---------- App bootstrap ----------
-    let VIEW = 'day';
-    (async function(){
-      const data = await loadData();
-
-      // Populate filters
-      const buildingSel = byId('buildingFilter');
-      const roomSel = byId('roomFilter');
-
-      const buildings = Array.from(new Set((data.rooms||[]).map(r => r.building).filter(Boolean))).sort();
-      buildings.forEach(b => { const opt=document.createElement('option'); opt.value=b; opt.textContent=b; buildingSel.appendChild(opt); });
-
-      function repopulateRooms(){
-        const selectedBuilding = buildingSel.value;
-        roomSel.innerHTML = '<option value="all">All rooms</option>';
-        const roomsFiltered = selectedBuilding==='all' ? (data.rooms||[]) : (data.rooms||[]).filter(r => (r.building||'')===selectedBuilding);
-        roomsFiltered.forEach(r => { const opt=document.createElement('option'); opt.value=r.id; opt.textContent=r.name; roomSel.appendChild(opt); });
-      }
-      repopulateRooms();
-
-      const today = new Date();
-      const todayStr = fmtDate(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
-      const initialStr = nearestBookedDate(data.bookings, todayStr);
-      setDateInput(initialStr);
-      
-      // Tab switching
-      const tabDay = byId('tabDay');
-      const tabMonth = byId('tabMonth');
-      const dayWrap = byId('dayWrap');
-      const monthWrap = byId('monthWrap');
-
-      tabDay.addEventListener('click', () => { VIEW='day'; tabDay.classList.add('active'); tabMonth.classList.remove('active'); dayWrap.style.display='block'; monthWrap.style.display='none'; render(); });
-      tabMonth.addEventListener('click', () => { VIEW='month'; tabMonth.classList.add('active'); tabDay.classList.remove('active'); dayWrap.style.display='none'; monthWrap.style.display='block'; render(); });
-
-      function render(){
-        const dateStr = byId('datePicker').value;
-        if(!dateStr) return;
-        if(VIEW==='day'){
-          buildDayGrid(data, dateStr, buildingSel.value, roomSel.value, byId('statusFilter').value);
-        } else {
-          const d = new Date(dateStr);
-          buildMonthGrid(data, new Date(d.getFullYear(), d.getMonth(), 1), buildingSel.value, roomSel.value, byId('statusFilter').value);
-        }
-      }
-
-      byId('datePicker').addEventListener('change', render);
-      roomSel.addEventListener('change', render);
-      buildingSel.addEventListener('change', () => { repopulateRooms(); render(); });
-      byId('statusFilter').addEventListener('change', render);
-
-      byId('prev').addEventListener('click', () => { shiftDate(VIEW==='day' ? -1 : -30); render(); });
-      byId('next').addEventListener('click', () => { shiftDate(VIEW==='day' ? 1 : 30); render(); });
-
-      function shiftDate(days){
-        const d = new Date(byId('datePicker').value);
-        d.setDate(d.getDate() + days);
-        setDateInput(fmtDate(d));
-      }
-
-      // initial render
-      render();
-    })();
-  </script>
+  <script src="js/app.min.js"></script>
 </body>
 </html>
