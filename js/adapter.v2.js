@@ -1,4 +1,3 @@
-<script>
 (async function(){
   // 1) Load schedule.json (cache-busted)
   async function loadSchedule() {
@@ -130,4 +129,4 @@
   // Initial render
   tryRender();
 })();
-</script>
+
