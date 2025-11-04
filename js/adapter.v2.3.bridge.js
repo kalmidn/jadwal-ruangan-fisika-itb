@@ -1,13 +1,20 @@
-/* adapter.v2.4.bridge.js — always feed weekly legacy shape */
+/* adapter.v2.5.bridge.js — force legacy bare-array weekly feed */
 /* eslint-env browser */
 "use strict";
 
 (function () {
   function log(){ console.log("[schedule-bridge]", ...arguments); }
   function err(){ console.error("[schedule-bridge]", ...arguments); }
-  function onReady(cb){ if (document.readyState==="loading"){ document.addEventListener("DOMContentLoaded", cb, {once:true}); } else { cb(); } }
 
-  // ---- load v2 from common paths ----
+  function onReady(cb){
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", cb, { once: true });
+    } else {
+      cb();
+    }
+  }
+
+  // Load v2 JSON from common paths
   async function loadV2(){
     const paths = [
       "data/schedule.json?_=" + Date.now(),
@@ -18,7 +25,7 @@
     let lastError = null;
     for (const p of paths){
       try{
-        const r = await fetch(p, {cache:"no-store"});
+        const r = await fetch(p, { cache: "no-store" });
         if (!r.ok) throw new Error("HTTP " + r.status + " for " + p);
         const j = await r.json();
         log("Loaded v2 data from", p);
@@ -28,155 +35,146 @@
     throw lastError || new Error("schedule.json not found");
   }
 
-  // ---- normalize v2/v1 ----
+  // Normalize both v2 and old formats into {bookings}
   function normalize(raw){
-    const buildings = Array.isArray(raw.buildings) && raw.buildings.length
-      ? raw.buildings
-      : [{
-          id: "GF",
-          name: "Gedung Fisika",
-          rooms: (raw.rooms || ["1201","1202","1203","1204","1205","Ruang Staf Lama","Ruang Staf Baru"])
-                 .map(r => typeof r==="string" ? r : (r && (r.id||String(r))) || "")
-                 .map(s => s.includes("-") ? s : "GF-" + s)
-        }];
-
-    const bookings = (Array.isArray(raw.bookings) ? raw.bookings : []).map(b => {
-      const rooms = Array.isArray(b.rooms) ? b.rooms.map(String) : (b.room_id ? [String(b.room_id)] : []);
-      const building_id = b.building_id ? String(b.building_id)
-                        : (rooms[0] && rooms[0].includes("-") ? rooms[0].split("-")[0] : "GF");
+    const bookingsSrc = Array.isArray(raw.bookings) ? raw.bookings : Array.isArray(raw) ? raw : [];
+    const bookings = bookingsSrc.map(b => {
+      const rooms = Array.isArray(b.rooms) ? b.rooms.map(String)
+                  : b.room_id ? [String(b.room_id)] : [];
+      const building_id = b.building_id
+        ? String(b.building_id)
+        : (rooms[0] && rooms[0].includes("-") ? rooms[0].split("-")[0] : "GF");
       const status = String(b.status || "").toLowerCase();
       const id = b.id ? String(b.id) : (building_id + "-" + Math.random().toString(36).slice(2,8));
-      return {...b, id, rooms, building_id, status};
+      return { ...b, id, rooms, building_id, status };
     });
-
-    return { buildings, bookings, updated_at: raw.updated_at || null };
+    return { bookings };
   }
 
-  // ---- expand merged rooms (A+B -> 2 rows) ----
+  // Expand merged (rooms: ["AX-A","AX-B"]) → per-room rows
   function expandPerRoom(b){
     const label = b.rooms.join("+");
     const gid = b.id + "::" + label;
     return b.rooms.map(room_id => ({ ...b, room_id, label, group_id: gid }));
   }
 
-  // ---- helpers for formatting ----
-  const wdAbbrev = ["SU","MO","TU","WE","TH","FR","SA"]; // JS getDay(): 0..6
+  // Helpers
+  const WD_ABBR = ["SU","MO","TU","WE","TH","FR","SA"];
   function pad2(n){ return n < 10 ? "0"+n : String(n); }
   function toYMD(d){ return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); }
   function toHM(d){ return pad2(d.getHours())+":"+pad2(d.getMinutes()); }
 
-  // ---- convert EVERYTHING to weekly legacy rows ----
-  function toLegacyWeekly(meta){
+  // Convert EVERYTHING to legacy WEEKLY **bare array**
+  function toLegacyWeeklyBare(meta){
     const out = [];
 
     meta.bookings.forEach(b => {
       const rows = expandPerRoom(b);
-      rows.forEach(r => {
-        const common = {
-          id: r.id,
-          room_id: r.room_id,
-          status: r.status,             // "fixed" | "approved" | "pending"
-          title: r.title || "",
-          by_role: r.by_role || null,
-          by_name: r.by_name || null,
-          _building_id: r.building_id,
-          _merge_label: r.label
-        };
 
-        // Case 1: one-off ISO provided (start_dt/end_dt) → convert to weekly-once
+      rows.forEach(r => {
+        // If one-off ISO exists, convert to weekly-once (same date_from/date_to)
         if (r.start_dt && r.end_dt) {
           const ds = new Date(r.start_dt);
           const de = new Date(r.end_dt);
           if (!isNaN(ds) && !isNaN(de)) {
-            const ymd = toYMD(ds);
-            const wd  = wdAbbrev[ds.getDay()];   // e.g., "WE"
-            const st  = toHM(ds);
-            const et  = toHM(de);
             out.push({
-              ...common,
-              date_from: ymd,
-              date_to:   ymd,           // same day = one occurrence
-              byweekday: [wd],
-              start: st,
-              end:   et
+              id: String(r.id),
+              room_id: String(r.room_id),
+              date_from: toYMD(ds),
+              date_to: toYMD(ds),
+              byweekday: [ WD_ABBR[ds.getDay()] ],
+              start: toHM(ds),
+              end: toHM(de),
+              status: String(r.status || ""),
+              title: String(r.title || ""),
+              by_role: r.by_role ? String(r.by_role) : "",
+              by_name: r.by_name ? String(r.by_name) : ""
             });
             return;
           }
-          // If parse failed, drop through to other cases
         }
 
-        // Case 2: already weekly in v2/v1
+        // Already weekly v1/v2
         if (r.date_from && r.date_to && Array.isArray(r.byweekday) && r.start && r.end) {
           out.push({
-            ...common,
+            id: String(r.id),
+            room_id: String(r.room_id),
             date_from: String(r.date_from),
-            date_to:   String(r.date_to),
+            date_to: String(r.date_to),
             byweekday: r.byweekday.map(String),
-            start:     String(r.start),
-            end:       String(r.end)
+            start: String(r.start),
+            end: String(r.end),
+            status: String(r.status || ""),
+            title: String(r.title || ""),
+            by_role: r.by_role ? String(r.by_role) : "",
+            by_name: r.by_name ? String(r.by_name) : ""
           });
           return;
         }
 
-        // Case 3: single date + start/end (rare) → convert to weekly-once
+        // Single date + start/end → weekly-once
         if (r.date && r.start && r.end) {
-          const ymd = String(r.date);
-          // Try to deduce weekday from ymd; fallback to MO
+          const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(r.date));
           let wd = "MO";
-          const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
-          if (m) {
-            const d = new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
-            if (!isNaN(d)) wd = wdAbbrev[d.getDay()];
+          if (parts) {
+            const d = new Date(+parts[1], +parts[2]-1, +parts[3]);
+            if (!isNaN(d)) wd = WD_ABBR[d.getDay()];
           }
           out.push({
-            ...common,
-            date_from: ymd,
-            date_to:   ymd,
+            id: String(r.id),
+            room_id: String(r.room_id),
+            date_from: String(r.date),
+            date_to: String(r.date),
             byweekday: [wd],
             start: String(r.start),
-            end:   String(r.end)
+            end: String(r.end),
+            status: String(r.status || ""),
+            title: String(r.title || ""),
+            by_role: r.by_role ? String(r.by_role) : "",
+            by_name: r.by_name ? String(r.by_name) : ""
           });
           return;
         }
 
-        // Case 4: start/end are ISO strings (without weekly fields) → convert to weekly-once
+        // ISO start/end without weekly fields → weekly-once
         if (r.start && r.end && String(r.start).includes("T")) {
           const ds = new Date(r.start);
           const de = new Date(r.end);
           if (!isNaN(ds) && !isNaN(de)) {
-            const ymd = toYMD(ds);
-            const wd  = wdAbbrev[ds.getDay()];
             out.push({
-              ...common,
-              date_from: ymd,
-              date_to:   ymd,
-              byweekday: [wd],
+              id: String(r.id),
+              room_id: String(r.room_id),
+              date_from: toYMD(ds),
+              date_to: toYMD(ds),
+              byweekday: [ WD_ABBR[ds.getDay()] ],
               start: toHM(ds),
-              end:   toHM(de)
+              end: toHM(de),
+              status: String(r.status || ""),
+              title: String(r.title || ""),
+              by_role: r.by_role ? String(r.by_role) : "",
+              by_name: r.by_name ? String(r.by_name) : ""
             });
             return;
           }
         }
 
-        // If we reach here, data was incomplete → skip to avoid breaking calendar
-        // Uncomment for debugging:
-        // log("Skipped incomplete booking (no weekly/one-off data):", r);
+        // If we reach here, the row is incomplete; skip to avoid breaking calendar
       });
     });
 
-    return { bookings: out, updated_at: meta.updated_at };
+    return out;
   }
 
-  // ---- fetch monkey-patch: always serve weekly legacy at schedule.json ----
-  function installFetchBridge(legacyJSON){
+  // Monkey-patch fetch to serve a **bare array** at schedule.json
+  function installFetchBridge(legacyArray){
     const originalFetch = window.fetch.bind(window);
-    const LEGACY = JSON.stringify(legacyJSON);
+    const LEGACY = JSON.stringify(legacyArray);
 
     window.fetch = async function(input, init){
       const url = (typeof input === "string") ? input : (input && input.url) || "";
-      const bare = url.split("?")[0] || "";
+      const bare = (url.split("?")[0] || "");
       if (bare.endsWith("/schedule.json") || bare.endsWith("schedule.json")) {
-        log("Intercepted", url, "→ legacy weekly schedule.json");
+        log("Intercepted", url, "→ returning legacy bare-array schedule.json");
         return new Response(LEGACY, {
           status: 200,
           headers: { "Content-Type": "application/json" }
@@ -191,10 +189,10 @@
       try{
         const raw = await loadV2();
         const meta = normalize(raw);
-        const legacy = toLegacyWeekly(meta);          // <-- ALWAYS weekly fields present
-        installFetchBridge(legacy);
+        const legacyBare = toLegacyWeeklyBare(meta);
+        installFetchBridge(legacyBare);
 
-        // Nudge app to refetch once
+        // Nudge your app to refetch once
         setTimeout(function(){
           if (!sessionStorage.getItem("scheduleBridgeReloaded")){
             sessionStorage.setItem("scheduleBridgeReloaded","1");
@@ -202,8 +200,7 @@
           }
         }, 60);
 
-        log("Bridge active — weekly legacy feed ready.");
-
+        log("Bridge active — legacy bare-array feed ready. Items:", legacyBare.length);
       }catch(e){
         err("Bridge failed:", e);
       }
