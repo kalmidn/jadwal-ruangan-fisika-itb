@@ -1,190 +1,146 @@
-/* app.v3.js — minimal, robust booking-table renderer (no dependencies) */
+/* app.v3a.js — renders a booking table; auto-falls back to .container/body if #booking-table missing */
 /* eslint-env browser */
 "use strict";
 
 (function () {
-  // ---------- tiny helpers ----------
-  function log(){ console.log("[booking-table]", ...arguments); }
-  function err(){ console.error("[booking-table]", ...arguments); }
-  function onReady(cb){
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", cb, { once: true });
-    } else { cb(); }
-  }
-  function pad2(n){ return n < 10 ? "0"+n : String(n); }
-
-  // Parse ISO "2025-10-22T13:00:00+07:00" -> {date:"2025-10-22", time:"13:00"}
+  function log(){ try{ console.log("[booking-table]", ...arguments); }catch(_){} }
+  function err(){ try{ console.error("[booking-table]", ...arguments); }catch(_){} }
+  function onReady(cb){ if (document.readyState==="loading"){ document.addEventListener("DOMContentLoaded", cb,{once:true}); } else { cb(); } }
+  function pad2(n){ return n<10 ? "0"+n : String(n); }
   function splitISO(iso){
-    if (!iso || typeof iso !== "string" || !iso.includes("T")) return { date:"", time:"" };
-    const [d, tpart] = iso.split("T");
-    const hhmm = (tpart || "").split(/[+Z]/)[0];             // "13:00:00"
-    const parts = (hhmm || "").split(":");
-    return { date: d, time: (parts[0] && parts[1]) ? (pad2(+parts[0])+":"+pad2(+parts[1])) : "" };
+    if (!iso || typeof iso!=="string" || iso.indexOf("T")===-1) return {date:"",time:""};
+    const [d,tpart] = iso.split("T");
+    const t = (tpart||"").split(/[+Z]/)[0];                   // HH:MM:SS
+    const hhmm = t.split(":");
+    return { date: d, time: (hhmm[0]&&hhmm[1]) ? (pad2(+hhmm[0])+":"+pad2(+hhmm[1])) : "" };
   }
 
-  // ---------- load schedule.json from common paths ----------
-  async function loadSchedule(){
+  async function loadJSON(){
     const paths = [
       "data/schedule.json?_=" + Date.now(),
       "data/schedule.json",
       "./schedule.json?_=" + Date.now(),
       "./schedule.json"
     ];
-    let last = null;
+    let last=null;
     for (const p of paths){
       try{
         const r = await fetch(p, { cache:"no-store" });
-        if (!r.ok) throw new Error("HTTP " + r.status + " @ " + p);
+        if (!r.ok) throw new Error("HTTP "+r.status+" @ "+p);
         const j = await r.json();
         log("Loaded", p);
         return j;
-      }catch(e){ last = e; }
+      }catch(e){ last=e; }
     }
-    throw last || new Error("Cannot load schedule.json");
+    throw last || new Error("schedule.json not found");
   }
 
-  // ---------- normalization that accepts v2 and legacy ----------
   function normalize(raw){
-    // If legacy {rooms, bookings}
-    if (raw && Array.isArray(raw.bookings) && (Array.isArray(raw.rooms) || raw.rooms === undefined)) {
-      // Legacy rooms may already have {id, name, building}
-      const roomsLegacy = Array.isArray(raw.rooms) ? raw.rooms : [];
-      const roomIndex = new Map();
-      roomsLegacy.forEach(r => roomIndex.set(String(r.id), r));
-
-      const rows = raw.bookings.map(b => {
-        const roomId = String(b.room_id || "");
-        const r = roomIndex.get(roomId);
-        const building_id = roomId.includes("-") ? roomId.split("-")[0] : (r && r.building) || "GF";
-        const building_name = (r && r.building) || building_id;
-        const status = String(b.status || "").toLowerCase();
-        const startHM = String(b.start || "");
-        const endHM   = String(b.end || "");
-        const df = String(b.date_from || "");
-        const dt = String(b.date_to || "");
-        const byw = Array.isArray(b.byweekday) ? b.byweekday.map(String) : [];
-
+    // legacy: { rooms, bookings }
+    if (raw && Array.isArray(raw.bookings) && (Array.isArray(raw.rooms) || raw.rooms===undefined)){
+      const roomIdx = new Map();
+      (raw.rooms||[]).forEach(r=>roomIdx.set(String(r.id), r));
+      return (raw.bookings||[]).map(b=>{
+        const roomId = String(b.room_id||"");
+        const room = roomIdx.get(roomId);
+        const building = (room && room.building) || (roomId.includes("-") ? roomId.split("-")[0] : "GF");
+        const df = String(b.date_from||"");
+        const dt = String(b.date_to||"");
+        const byw = Array.isArray(b.byweekday) ? b.byweekday.join(", ") : "";
+        const whenText = byw ? `${byw} • ${df} → ${dt}` : (df||dt ? `${df} → ${dt}` : "");
+        const timeText = (b.start && b.end) ? `${b.start}–${b.end}` : "";
         return {
-          building_id,
-          building_name,
-          rooms: [roomId],
-          label: roomId.split("-").slice(1).join("-") || roomId,
-          status,
-          title: String(b.title || ""),
-          by_role: "",                                     // legacy didn’t always have roles
-          by_name: String(b.pic_name || ""),
-          whenText: (byw.length ? `${byw.join(", ")} • ${df} → ${dt}` : `${df} → ${dt}`),
-          timeText: (startHM && endHM) ? `${startHM}–${endHM}` : "",
+          building_name: building,
+          rooms_label: roomId.split("-").slice(1).join("-") || roomId,
+          whenText, timeText,
+          status: String(b.status||"").toLowerCase(),
+          title: String(b.title||""),
+          byline: String(b.pic_name||"")
         };
       });
-
-      return rows;
     }
 
-    // v2 with {buildings, bookings}
-    const buildings = Array.isArray(raw.buildings) ? raw.buildings : [];
-    const bIndex = new Map(); // roomId -> {building_id, building_name}
-    buildings.forEach(b => {
-      const bid = String(b.id || "GF");
-      const bname = b.name || bid;
-      (b.rooms || []).forEach(rn => {
-        const name = (typeof rn === "string") ? rn : (rn && (rn.name || rn.id)) || "";
-        // If room already prefixed, keep; else add building prefix for the id
-        let rid;
-        if (name.includes("-") && name.split("-")[0].toUpperCase() === bid.toUpperCase()) {
-          rid = name;
-        } else {
-          // Keep numeric/simple labels; just use bid-name as id
-          const core = name;
-          rid = bid + "-" + core;
-        }
-        bIndex.set(rid, { building_id: bid, building_name: bname });
+    // v2: { buildings, bookings }
+    const bIndex = new Map(); // roomId -> building_name
+    if (raw && Array.isArray(raw.buildings)){
+      raw.buildings.forEach(b=>{
+        const bid = String(b.id||"GF"); const bname = b.name || bid;
+        (b.rooms||[]).forEach(rn=>{
+          const name = (typeof rn==="string") ? rn : (rn && (rn.name||rn.id)) || "";
+          const rid = (name.includes("-") && name.split("-")[0].toUpperCase()===bid.toUpperCase())
+            ? name : (bid + "-" + name);
+          bIndex.set(rid, bname);
+        });
       });
-    });
+    }
 
-    const bookings = Array.isArray(raw.bookings) ? raw.bookings : [];
     const rows = [];
-
-    bookings.forEach(b => {
+    (raw && Array.isArray(raw.bookings) ? raw.bookings : []).forEach(b=>{
       const rooms = Array.isArray(b.rooms) ? b.rooms.map(String) : (b.room_id ? [String(b.room_id)] : []);
-      // derive building per room, fall back to b.building_id
-      const status = String(b.status || "").toLowerCase();
-      const title  = String(b.title || "");
-      const role   = b.by_role ? String(b.by_role) : "";
-      const name   = b.by_name ? String(b.by_name) : "";
+      if (!rooms.length) return;
 
-      // Weekly fields (preferred if present)
       const df = b.date_from ? String(b.date_from) : (b.start ? splitISO(b.start).date : "");
       const dt = b.date_to   ? String(b.date_to)   : (b.end   ? splitISO(b.end).date   : "");
-      const byw = Array.isArray(b.byweekday) ? b.byweekday.map(String) : [];
-      const startHM = b.start && b.start.includes("T") ? splitISO(b.start).time : (b.start || "");
-      const endHM   = b.end   && b.end.includes("T")   ? splitISO(b.end).time   : (b.end   || "");
-
-      const whenText = byw.length
-        ? `${byw.join(", ")} • ${df} → ${dt}`
-        : (df || dt) ? `${df} → ${dt}` : (b.start && b.end) ? `${b.start} → ${b.end}` : "";
-
+      const startHM = (b.start && b.start.includes("T")) ? splitISO(b.start).time : (b.start||"");
+      const endHM   = (b.end   && b.end.includes("T"))   ? splitISO(b.end).time   : (b.end||"");
+      const byw = Array.isArray(b.byweekday) ? b.byweekday.join(", ") : "";
+      const whenText = byw ? `${byw} • ${df} → ${dt}` : (df||dt ? `${df} → ${dt}` : (b.start&&b.end ? `${b.start} → ${b.end}` : ""));
       const timeText = (startHM && endHM) ? `${startHM}–${endHM}` : "";
 
-      if (!rooms.length) return; // skip malformed
+      const labels = rooms.map(r=> r.includes("-") ? r.split("-").slice(1).join("-") : r);
+      const label = labels.join("+");
 
-      // Make one display row (merged rooms show as A+B etc.)
-      const labels = rooms.map(r => r.includes("-") ? r.split("-").slice(1).join("-") : r);
-      const label  = labels.join("+");
-
-      // Choose building name from the first room we can resolve
-      let building_id = String(b.building_id || "");
-      let building_name = building_id || "";
-      for (const rn of rooms) {
-        const rid = rn.includes("-") ? rn : (building_id ? (building_id + "-" + rn) : rn);
-        const info = bIndex.get(rid);
-        if (info) { building_id = info.building_id; building_name = info.building_name; break; }
+      // pick first resolvable building
+      let building = "";
+      for (const r of rooms){
+        const rid = r.includes("-") ? r : (String(b.building_id||"GF") + "-" + r);
+        if (bIndex.has(rid)) { building = bIndex.get(rid); break; }
       }
-      if (!building_id) building_id = "GF";
-      if (!building_name) building_name = building_id;
+      if (!building) building = String(b.building_id||"GF");
 
       rows.push({
-        building_id,
-        building_name,
-        rooms: rooms.slice(),
-        label,
-        status,
-        title,
-        by_role: role,
-        by_name: name,
-        whenText,
-        timeText
+        building_name: building,
+        rooms_label: label,
+        whenText, timeText,
+        status: String(b.status||"").toLowerCase(),
+        title: String(b.title||""),
+        byline: String(b.by_name||"")
       });
     });
 
+    log("Rows normalized:", rows.length);
     return rows;
   }
 
-  // ---------- render a simple table ----------
+  function mount(){
+    // prefer #booking-table; fall back to .container; else body
+    return document.getElementById("booking-table")
+        || document.querySelector(".container")
+        || document.body;
+  }
+
   function renderTable(rows){
-    const host = document.getElementById("booking-table");
+    const host = mount();
     if (!host) return;
 
-    if (!rows || !rows.length) {
-      host.innerHTML = '<div style="color:#6b7280">Tidak ada booking.</div>';
-      return;
-    }
-
-    // Small CSS (scoped)
-    const styleId = "booking-table-inline-style";
-    if (!document.getElementById(styleId)) {
+    if (!document.getElementById("booking-table-style")){
       const st = document.createElement("style");
-      st.id = styleId;
+      st.id = "booking-table-style";
       st.textContent = `
-        #booking-table table { border-collapse: collapse; width: 100%; font-size: 14px; }
-        #booking-table th, #booking-table td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
-        #booking-table th { background: #f8fafc; font-weight: 600; }
-        #booking-table .status-fixed    { color: #0ea5e9; font-weight: 600; }
-        #booking-table .status-approved { color: #16a34a; font-weight: 600; }
-        #booking-table .status-pending  { color: #d97706; font-weight: 600; }
-        #booking-table .byline { color:#6b7280; }
+        #booking-table table, .container table { border-collapse: collapse; width: 100%; font-size: 14px; }
+        #booking-table th, #booking-table td, .container th, .container td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+        #booking-table th, .container th { background: #f8fafc; font-weight: 600; }
+        .status-fixed    { color: #0ea5e9; font-weight: 600; }
+        .status-approved { color: #16a34a; font-weight: 600; }
+        .status-pending  { color: #d97706; font-weight: 600; }
+        .muted { color:#6b7280; }
       `;
       document.head.appendChild(st);
+    }
+
+    if (!rows || !rows.length){
+      host.insertAdjacentHTML("beforeend", '<div class="muted">Tidak ada booking.</div>');
+      return;
     }
 
     const head = `
@@ -199,36 +155,37 @@
         </tr>
       </thead>`;
 
-    const body = rows.map(r => {
-      const statusClass = "status-" + (r.status || "unknown");
-      const by = (r.by_role ? `[${r.by_role}] ` : "") + (r.by_name || "");
+    const body = rows.map(r=>{
+      const statusClass = "status-" + (r.status||"unknown");
+      const by = r.byline ? `<div class="muted">${r.byline}</div>` : "";
       return `
         <tr>
-          <td>${r.building_name || r.building_id}</td>
-          <td>${r.label}</td>
+          <td>${r.building_name}</td>
+          <td>${r.rooms_label}</td>
           <td>${r.whenText}</td>
           <td>${r.timeText}</td>
           <td class="${statusClass}">${r.status}</td>
-          <td>
-            ${r.title ? r.title : "-"}
-            <div class="byline">${by}</div>
-          </td>
+          <td>${r.title || "-"} ${by}</td>
         </tr>`;
     }).join("");
 
-    host.innerHTML = `<table>${head}<tbody>${body}</tbody></table>`;
+    const wrapperId = "booking-table-wrapper";
+    const wrapper = document.createElement("div");
+    wrapper.id = wrapperId;
+    wrapper.innerHTML = `<table>${head}<tbody>${body}</tbody></table>`;
+    host.appendChild(wrapper);
   }
 
-  // ---------- boot ----------
   onReady(async function(){
     try{
-      const raw = await loadSchedule();
+      const raw = await loadJSON();
       const rows = normalize(raw);
       renderTable(rows);
     }catch(e){
       err(e);
-      const host = document.getElementById("booking-table");
-      if (host) host.innerHTML = `<div style="color:#dc2626">Gagal memuat jadwal: ${String(e && (e.message||e))}</div>`;
+      const host = mount();
+      if (host) host.insertAdjacentHTML("beforeend",
+        `<div style="color:#dc2626">Gagal memuat jadwal: ${String(e && (e.message||e))}</div>`);
     }
   });
 })();
